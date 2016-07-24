@@ -18,7 +18,10 @@
   },
   "homepage": "https://gitlab.com/wuip-jarvis/twitterCitations#README",
   "dependencies": {
+    "googleapis": "^12.0.0",
     "gulp": "^3.9.1",
-    "gulp-eslint": "^3.0.1"
+    "gulp-eslint": "^3.0.1",
+    "node-schedule": "^1.1.1",
+    "twit": "^2.2.4"
   }
 }
