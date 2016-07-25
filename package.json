@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": "6.3.0"
+  },
   "scripts": {
     "test": "gulp build",
     "start": "node index.js"
