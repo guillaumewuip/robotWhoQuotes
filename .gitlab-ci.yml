@@ -29,8 +29,8 @@ cache:
     # Add dokku to known hosts
     - ssh-keyscan -H $DOKKU_HOST >> ~/.ssh/known_hosts
   script:
-    - echo git push dokku@$DOKKU_HOST:$PROJECT_NAME master # debug
-    - git push dokku@$DOKKU_HOST:$PROJECT_NAME master
+    - echo git push --force dokku@$DOKKU_HOST:$PROJECT_NAME master # debug
+    - git push --force dokku@$DOKKU_HOST:$PROJECT_NAME master
 
 ###############################################################################
 #                                  Stages                                     #
