@@ -1,7 +1,9 @@
 Twitter bot who sends quotes
 ============================
 
-[Twitter account](http://i.imgur.com/yvWEbLq.png)
+![Twitter account](http://i.imgur.com/yvWEbLq.png)
+
+🤖➡️  [http://twitter.com/robotWhoQuotes](http://twitter.com/robotWhoQuotes)
 
 # Use
 
@@ -11,4 +13,4 @@ npm start
 
 # Dev
 
-Lint js with `gulp`
+There is a `gulpfile.js` to lint your JS
