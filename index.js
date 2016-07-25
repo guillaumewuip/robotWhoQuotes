@@ -4,8 +4,23 @@
 (() => {
 
     const
-        schedule = require('node-schedule'),
-        Twit     = require('twit');
+        schedule         = require('node-schedule'),
+        Twit             = require('twit'),
+        nodeWit          = require('node-wit'),
+        Wit              = nodeWit.Wit,
+        witLogger        = nodeWit.log,
+        twitterHelper    = require('./src/twitter');
+
+    const INTRO_SENTENCES = [
+        'Here\'s quote for you 📝',
+        'Here we go 💝',
+        '➡',
+        'Here\'s your quote, have a nice day ! 🤖',
+        'Thanks for asking 👍',
+        'Have a nice day 👌',
+        '',
+    ];
+
     const
         SPREADSHEET_ID = (() => {
             if (!process.env.SPREADSHEET_ID) {
@@ -19,6 +34,13 @@
                 throw new Error('Need GOOGLE_API_KEY');
             }
             return process.env.GOOGLE_API_KEY;
+        })(),
+
+        WIT_TOKEN = (() => {
+            if (!process.env.WIT_TOKEN) {
+                throw new Error('Need WIT_TOKEN');
+            }
+            return process.env.WIT_TOKEN;
         })(),
 
         TWITTER_CONSUMER_KEY = (() => {
@@ -61,57 +83,123 @@
         GOOGLE_API_KEY,
     });
 
-    const sendToTwitter = (T) => {
-        return (tweet) => {
-            console.log('Send status to Twitter', tweet);
-            T.post('statuses/update', {status: tweet}, (err) => {
-                if (err) {
-                    console.error(err);
-                } else {
-                    console.log('Twitter status send');
-                }
-            });
-        };
-    };
-
-    const buildTwitterQuote = (quote) => {
-
-        let tweet = quote.content;
-
-        if (quote.author) {
-            tweet += `\n${quote.author}`;
-        }
-
-        if (quote.source) {
-            tweet += ` (${quote.tweet})`;
-        }
-
-        return Promise.resolve(tweet);
-    };
-
-    const replyToTweet = (T)  => {
-        return (tweet) => {
-            //TODO
-        };
-    };
-
-    const sendRandomQuote = (T) => {
-        quotes.getRandom()
-            .then(buildTwitterQuote)
-            .then(sendToTwitter(T))
-            .catch((err) => {
-                console.error(err);
-            });
-    };
-
     var T = new Twit({
         consumer_key:        TWITTER_CONSUMER_KEY,
         consumer_secret:     TWITTER_CONSUMER_SECRET,
         access_token:        TWITTER_ACCESS_TOKEN,
         access_token_secret: TWITTER_ACCESS_TOKEN_SECRET,
-        // optional HTTP request timeout to apply to all requests.
-        timeout_ms:          20 * 1000,
+        timeout_ms:          60 * 1000, //not too low because stream will fail
     });
+
+    const getIntroSentence = (sentences) => {
+        const index = Math.floor(
+            Math.random() * (sentences.length + 1)
+        );
+        return Promise.resolve(sentences[index]);
+    };
+
+    const sendTweets = (T, id) => {
+        return (msgs) => {
+            return Promise.all(
+                msgs.map((msg) => twitterHelper.send(T)(msg, id))
+            );
+        };
+    };
+
+    const witActions = {
+        send(request, response) {
+            return new Promise((resolve, reject) => {
+
+                console.log('Wit response', response);
+
+                const
+                    {sessionId, context} = request,
+                    {tweet} = context;
+
+                //we use sessionId to store both tweet id and user name
+                //<id>-<name>
+                const [id, name] = sessionId.split('-');
+
+                return getIntroSentence(INTRO_SENTENCES)
+                    .then((intro) => {
+                        return twitterHelper.buildTweets(
+                            `${intro}\n${tweet}`,
+                            `@${name} `
+                        );
+                    })
+                    .then(sendTweets(T, id))
+                    .then(() => {
+                        console.log('Twitter reply send');
+                        resolve();
+                    })
+                    .catch((err) => {
+                        console.log('Wit send error', err);
+                        reject();
+                    });
+            });
+        },
+        getQuote({context}) {
+            return quotes.getRandom()
+                .then(twitterHelper.buildQuote)
+                .then((tweet) => {
+                    context.tweet = tweet;
+                    return context;
+                })
+                .catch((err) => {
+                    console.erro('getQuote wit error', err);
+                });
+        },
+    };
+
+    const wit = new Wit({
+        accessToken: WIT_TOKEN,
+        actions:     witActions,
+        logger:      new witLogger.Logger(witLogger.DEBUG),
+    });
+
+    const sendRandomQuote = (T) => {
+        quotes.getRandom()
+            .then(twitterHelper.buildQuote)
+            .then(twitterHelper.buildTweets)
+            .then(sendTweets(T))
+            .then(() => {
+                console.log('Twitter status send');
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+    };
+
+    const replyToTweet = (wit)  => {
+        return (tweet) => {
+            const
+                user = tweet.user.screen_name,
+                id   = `${tweet.id}-${user}`,
+                text = tweet.text;
+
+            console.log('Get tweet', id, text);
+
+            if (user === TWITTER_NAME) { //prevent infinite loop
+                return;
+            }
+
+            wit.runActions(
+                id,
+                text,
+                {} //context
+            )
+            .then(() => {
+                console.log('runAction end');
+            })
+            .catch((err) => {
+                console.error('Wit runActions error', err);
+            });
+        };
+    };
+
+    /*
+     * Main
+     */
 
     T.get('account/verify_credentials', {skip_status: true})
         .catch(function (err) {
@@ -122,11 +210,16 @@
             console.log('Twitter check credentials ok');
         });
 
-    T.stream(
+    const mentionsStream = T.stream(
         'statuses/filter', {
-            track: [TWITTER_NAME],
+            track: [`@${TWITTER_NAME}`],
         }
-    ).on('tweet', replyToTweet(T));
+    );
+    mentionsStream.on('error', (err) => {
+        console.log('Stream error', err);
+        process.exit(1);
+    });
+    mentionsStream.on('tweet', replyToTweet(wit));
 
     schedule.scheduleJob(
         '* 15 4 * *', //6h15

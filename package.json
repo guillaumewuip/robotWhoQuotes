@@ -22,6 +22,7 @@
     "gulp": "^3.9.1",
     "gulp-eslint": "^3.0.1",
     "node-schedule": "^1.1.1",
+    "node-wit": "^4.0.0",
     "twit": "^2.2.4"
   }
 }
