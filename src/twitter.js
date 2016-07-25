@@ -132,7 +132,7 @@
      * If needed because tweet is too long, produce the good number of tweets
      * below 140 characters and cut at the optimal moment.
      * Warning ! Could produce something bigger than 140 characters if can't
-     * split enough with '\n', '.', ';', ',', '.'
+     * split enough with '\n', '.', ';', ',', '.', ' '
      *
      * @param  {String} tweet   Original content
      * @param  {String} prefix  Something to append before each tweet
