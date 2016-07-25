@@ -222,7 +222,7 @@
     mentionsStream.on('tweet', replyToTweet(wit));
 
     schedule.scheduleJob(
-        '* 15 4 * *', //6h15
+        '* 15 4 * * *', //6h15
         sendRandomQuote.bind(null, T)
     );
 
