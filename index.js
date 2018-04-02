@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop, no-restricted-syntax */
 const schedule = require('node-schedule');
 const Twit     = require('twit');
 const dotenv   = require('dotenv');
@@ -6,7 +7,9 @@ const {
   sendTweet,
   buildQuote,
   buildTweets,
+  waitTweet,
 } = require('./src/twitter');
+
 const Quotes = require('./src/quotes');
 
 dotenv.config();
@@ -53,6 +56,13 @@ const TWITTER_ACCESS_TOKEN_SECRET = (() => {
   return process.env.TWITTER_ACCESS_TOKEN_SECRET;
 })();
 
+const TWITTER_NAME = (() => {
+  if (!process.env.TWITTER_NAME) {
+    throw new Error('Need TWITTER_NAME');
+  }
+  return process.env.TWITTER_NAME;
+})();
+
 const quotes = Quotes({
   SPREADSHEET_ID,
   GOOGLE_API_KEY,
@@ -66,20 +76,29 @@ const T = new Twit({
   timeout_ms:          60 * 1000, // not too low because stream will fail
 });
 
-const sendTweets = (twit, id) => (msgs) => Promise.all(msgs
-  .map((msg) => sendTweet(twit)(msg, id)));
+const sendTweets = async (twit, msgs) => {
+  let lastId = null;
 
-const sendRandomQuote = (twit) => quotes
-  .getRandom()
-  .then(buildQuote)
-  .then(buildTweets)
-  .then(sendTweets(twit))
-  .then(() => {
+  for (const msg of msgs) {
+    const { id } = await sendTweet(twit)(msg, lastId);
+    lastId = id;
+
+    await waitTweet();
+  }
+};
+
+const sendRandomQuote = async (twit, prefix) => {
+  try {
+    const quote = await quotes.getRandom();
+
+    console.log(quote);
+
+    await sendTweets(twit, buildTweets(buildQuote(quote), prefix));
     console.log('Twitter status send');
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error(err);
-  });
+  }
+};
 
 /*
  * Main
@@ -96,6 +115,5 @@ T.get('account/verify_credentials', { skip_status: true })
 
 schedule.scheduleJob(
   '0 15 4 * * *', // 6h15
-  () => sendRandomQuote(T)
+  () => sendRandomQuote(T, TWITTER_NAME)
 );
-

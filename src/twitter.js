@@ -1,29 +1,36 @@
-const MAX_LENGTH = 140;
+const MAX_LENGTH = 280;
+const MIN_DELAY_BETWEEN_TWEET = 1000;
+
+const delay = (ms) => () => new Promise((resolve) => (
+  setTimeout(() => resolve(), ms)
+));
 
 /**
  * @param  {String} tweet       New tweet
- * @param  {String} statusId    (optional) A tweet id when replying to
- *                              someone
+ * @param  {String} statusId    (optional) A tweet id when replying to someone
  */
-const sendTweet = (T) => (tweet, statusId) => new Promise((resolve, reject) => {
-  const data = {
-    status: tweet,
-  };
+const sendTweet = (T) => (tweet, statusId) => (
+  new Promise((resolve, reject) => {
+    const data = {
+      status:                       tweet,
+      auto_populate_reply_metadata: false,
+    };
 
-  if (statusId) {
-    data.in_reply_to_status_id = statusId;
-  }
-
-  console.log('Send status to Twitter', data);
-
-  T.post('statuses/update', data, (err) => {
-    if (err) {
-      reject(err);
-    } else {
-      resolve();
+    if (statusId) {
+      data.in_reply_to_status_id = statusId;
     }
-  });
-});
+
+    console.log('Send status to Twitter', data);
+
+    T.post('statuses/update', data, (err, result) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ id: result.id_str });
+      }
+    });
+  })
+);
 
 const buildQuote = (quote) => {
   let tweet = quote.content;
@@ -36,7 +43,7 @@ const buildQuote = (quote) => {
     tweet += ` (${quote.source})`;
   }
 
-  return Promise.resolve(tweet);
+  return tweet;
 };
 
 /**
@@ -58,16 +65,24 @@ const concatToOptimalSize = (blocks, maxLength, ch) => blocks
     // start of list
     if (!last) {
       return [current];
-
-      // too long to append, need two blocks
-    } else if (last.length + current.length > maxLength - ch.length - 1) {
-      return result.concat([last + ch, current]);
-
-      // we can append
     }
 
-    result.push(`${last}${ch}${current}`);
-    return result;
+    const totalLength = last.length + current.length;
+    const limitLength = maxLength - ch.length - 1;
+
+    // too long to append, need two blocks
+    if (totalLength > limitLength) {
+      return [
+        ...result,
+        `${last.trim() + ch}`,
+        `${current}`,
+      ];
+    }
+
+    return [
+      ...result,
+      `${last.trim()}${ch}${current.trim()}`,
+    ];
   }, []);
 
 /**
@@ -116,22 +131,25 @@ const processSplit = (blocks, maxLength, ch) => blocks
  * split enough with '\n', '.', ';', ',', '.', ' '
  *
  * @param  {String} tweet   Original content
- * @param  {String} prefix  Something to append before each tweet
  *
  * @return  {Array}         Array of strings
  */
 const buildTweets = (tweet, prefix = '') => {
-  const maxLength = MAX_LENGTH - prefix.length;
+  const maxLength = MAX_LENGTH;
 
   let blocks = ['\n', '.', ';', ',', '.', ' ']
-    .reduce((result, ch) => processSplit(result, maxLength, ch), [tweet]);
+    .reduce(
+      (result, ch) => processSplit(result, maxLength, ch),
+      [tweet]
+    );
 
   blocks = concatToOptimalSize(blocks, maxLength, '');
 
-  return blocks.map((block) => prefix + block);
+  return blocks.map((block, i) => `${i > 0 ? `${prefix} ` : ''}${block}`);
 };
 
 module.exports = {
+  waitTweet: delay(MIN_DELAY_BETWEEN_TWEET),
   sendTweet,
   buildQuote,
   buildTweets,

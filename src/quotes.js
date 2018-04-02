@@ -1,4 +1,4 @@
-const google = require('googleapis');
+const { google } = require('googleapis');
 
 const sheets = google.sheets('v4');
 const RANGE = 'Quotes!B:D';
@@ -13,7 +13,7 @@ const readSpreadsheeet = (id, range, apiKey) => (
       if (err) {
         reject(err);
       } else {
-        resolve(response.values);
+        resolve(response.data.values);
       }
     });
   })
