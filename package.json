@@ -1,6 +1,6 @@
 {
   "name": "twitter-citations-bot",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "engines": {
@@ -12,7 +12,7 @@
   },
   "repository": "git+ssh://git@gitlab.com/wuip-jarvis/twitterCitations.git",
   "author": "Guillaume Wuip <guillaume@wuips.com>",
-  "license": "",
+  "license": "MIT",
   "private": true,
   "dependencies": {
     "dotenv": "^5.0.1",
